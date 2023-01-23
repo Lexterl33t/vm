@@ -237,6 +237,29 @@ func (runtime *Runtime) Push() error {
 
 	runtime.Registers[QSP] = runtime.Stack.Top()
 
+	fmt.Println(runtime.Stack.Stack)
+
+	runtime.AdvanceNOpcode(7)
+
+	return nil
+}
+
+func (runtime *Runtime) PushExtended(prefix byte) error {
+	if _, ok := registers_table[Register(runtime.Opcodes[runtime.QIP+1])]; !ok {
+		return fmt.Errorf("[ %X ] Unknow register on QIP %016X", runtime.Opcodes[runtime.QIP+1], runtime.QIP)
+	}
+
+	if prefix != 0x1 {
+		return fmt.Errorf("[ %x ] Unknow prefix for push on QIP %016X")
+	}
+	runtime.AdvanceNOpcode(1)
+
+	var source_operand Register = Register(runtime.Opcodes[runtime.QIP])
+
+	runtime.Stack.Push(runtime.Registers[source_operand])
+
+	runtime.Registers[QSP] = int(runtime.Stack.Top())
+
 	runtime.AdvanceNOpcode(7)
 
 	return nil
@@ -267,7 +290,7 @@ func (runtime *Runtime) Eq() {
 	var ip_dest int = int(runtime.Opcodes[runtime.QIP])
 
 	if runtime.Registers[QZF] == 0 {
-		runtime.QIP = ip_dest
+		runtime.QIP = ip_dest * 8
 		return
 	}
 
@@ -280,7 +303,7 @@ func (runtime *Runtime) Neq() {
 	var ip_dest int = int(runtime.Opcodes[runtime.QIP])
 
 	if runtime.Registers[QZF] == 1 {
-		runtime.QIP = ip_dest
+		runtime.QIP = ip_dest * 8
 		return
 	}
 
