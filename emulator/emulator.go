@@ -1,5 +1,9 @@
 package emulator
 
+import (
+	"fmt"
+)
+
 type Runtime struct {
 	Registers map[Register]int
 	QIP       int
@@ -24,7 +28,7 @@ func (runtime *Runtime) AdvanceNOpcode(n int) {
 	runtime.QIP += n
 }
 
-func Exec(opcodes []byte) map[Register]int {
+func Exec(opcodes []byte) Runtime {
 	var runtime *Runtime = NewRuntime(opcodes)
 
 	for runtime.QIP < len(opcodes) {
@@ -57,7 +61,13 @@ func Exec(opcodes []byte) map[Register]int {
 					panic(err)
 				}
 			case byte(COMP):
+				if err := runtime.CompExtended(prefix); err != nil {
+					panic(err)
+				}
 			case byte(SET):
+				if err := runtime.SetExtended(prefix); err != nil {
+					panic(err)
+				}
 			}
 		case byte(COMP):
 			runtime.Comp()
@@ -65,11 +75,16 @@ func Exec(opcodes []byte) map[Register]int {
 			runtime.Eq()
 		case byte(NEQ):
 			runtime.Neq()
+		case byte(RES):
+			if err := runtime.Res(); err != nil {
+				panic(err)
+			}
 		default:
+			fmt.Println(runtime.Opcodes[runtime.QIP])
 			panic("Unknow opcode")
 		}
 
 	}
 
-	return runtime.Registers
+	return *runtime
 }

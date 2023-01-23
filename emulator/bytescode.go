@@ -207,6 +207,34 @@ func (runtime *Runtime) Set() error {
 	return nil
 }
 
+func (runtime *Runtime) SetExtended(prefix byte) error {
+	if _, ok := registers_table[Register(runtime.Opcodes[runtime.QIP+1])]; !ok {
+		return fmt.Errorf("[ %X ] Unknow register on line %016X", runtime.Opcodes[runtime.QIP+1], runtime.QIP)
+	}
+
+	if prefix != 1 {
+		return fmt.Errorf("[ %X ] Unknow prefix on QIP %016X", prefix, runtime.QIP)
+	}
+	runtime.AdvanceNOpcode(1)
+
+	var destination_operand Register = Register(runtime.Opcodes[runtime.QIP])
+
+	if _, ok := registers_table[Register(runtime.Opcodes[runtime.QIP+1])]; !ok {
+		return fmt.Errorf("[ %X ] Unknow register on line %016X", runtime.Opcodes[runtime.QIP+1], runtime.QIP)
+	}
+
+	runtime.AdvanceNOpcode(1)
+
+	var source_operand Register = Register(runtime.Opcodes[runtime.QIP])
+
+	runtime.Registers[destination_operand] = runtime.Registers[source_operand]
+
+	runtime.AdvanceNOpcode(5)
+
+	return nil
+
+}
+
 func (runtime *Runtime) Pop() error {
 	if _, ok := registers_table[Register(runtime.Opcodes[runtime.QIP+1])]; !ok {
 		return fmt.Errorf("[ %X ] Unknow register on line %016X", runtime.Opcodes[runtime.QIP+1], runtime.QIP)
@@ -237,8 +265,6 @@ func (runtime *Runtime) Push() error {
 
 	runtime.Registers[QSP] = runtime.Stack.Top()
 
-	fmt.Println(runtime.Stack.Stack)
-
 	runtime.AdvanceNOpcode(7)
 
 	return nil
@@ -260,7 +286,7 @@ func (runtime *Runtime) PushExtended(prefix byte) error {
 
 	runtime.Registers[QSP] = int(runtime.Stack.Top())
 
-	runtime.AdvanceNOpcode(7)
+	runtime.AdvanceNOpcode(6)
 
 	return nil
 }
@@ -282,6 +308,77 @@ func (runtime *Runtime) Comp() {
 	}
 
 	runtime.AdvanceNOpcode(6)
+}
+
+func (runtime *Runtime) CompExtended(prefix byte) error {
+
+	switch prefix {
+	case 0x01:
+		// register, value
+
+		if _, ok := registers_table[Register(runtime.Opcodes[runtime.QIP+1])]; !ok {
+			return fmt.Errorf("[ %X ] Unknow register on QIP %016X", runtime.Opcodes[runtime.QIP+1], runtime.QIP)
+		}
+
+		runtime.AdvanceNOpcode(1)
+
+		var register Register = Register(runtime.Opcodes[runtime.QIP])
+
+		runtime.AdvanceNOpcode(1)
+
+		var value int = int(runtime.Opcodes[runtime.QIP])
+
+		if runtime.Registers[register] == value {
+			runtime.Registers[QZF] = 0
+		} else {
+			runtime.Registers[QZF] = 1
+		}
+	case 0x02:
+
+		runtime.AdvanceNOpcode(1)
+
+		var value int = int(runtime.Opcodes[runtime.QIP])
+
+		runtime.AdvanceNOpcode(1)
+
+		var register Register = Register(runtime.Opcodes[runtime.QIP])
+
+		if runtime.Registers[register] == value {
+			runtime.Registers[QZF] = 0
+		} else {
+			runtime.Registers[QZF] = 1
+		}
+
+	case 0x03:
+		if _, ok := registers_table[Register(runtime.Opcodes[runtime.QIP+1])]; !ok {
+			return fmt.Errorf("[ %X ] Unknow register on QIP %016X", runtime.Opcodes[runtime.QIP+1], runtime.QIP)
+		}
+
+		runtime.AdvanceNOpcode(1)
+
+		var register1 Register = Register(runtime.Opcodes[runtime.QIP])
+
+		if _, ok := registers_table[Register(runtime.Opcodes[runtime.QIP+1])]; !ok {
+			return fmt.Errorf("[ %X ] Unknow register on QIP %016X", runtime.Opcodes[runtime.QIP+1], runtime.QIP)
+		}
+
+		runtime.AdvanceNOpcode(1)
+
+		var register2 Register = Register(runtime.Opcodes[runtime.QIP])
+
+		if runtime.Registers[register1] == runtime.Registers[register2] {
+			runtime.Registers[QZF] = 0
+		} else {
+			runtime.Registers[QZF] = 1
+		}
+
+	default:
+		return fmt.Errorf("[ %X ] Unknow prefix. QIP %016X", prefix, runtime.QIP)
+	}
+
+	runtime.AdvanceNOpcode(5)
+
+	return nil
 }
 
 func (runtime *Runtime) Eq() {
@@ -308,4 +405,20 @@ func (runtime *Runtime) Neq() {
 	}
 
 	runtime.AdvanceNOpcode(7)
+}
+
+func (runtime *Runtime) Res() error {
+	if _, ok := registers_table[Register(runtime.Opcodes[runtime.QIP+1])]; !ok {
+		return fmt.Errorf("[ %X ] Unknow register on QIP %016X", runtime.Opcodes[runtime.QIP+1], runtime.QIP)
+	}
+
+	runtime.AdvanceNOpcode(1)
+
+	var destination_operand Register = Register(runtime.Opcodes[runtime.QIP])
+
+	runtime.Registers[destination_operand] = runtime.Registers[destination_operand] ^ runtime.Registers[destination_operand]
+
+	runtime.AdvanceNOpcode(7)
+
+	return nil
 }
