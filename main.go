@@ -2,7 +2,7 @@ package main
 
 import (
 	"emulator/emulator"
-	"fmt"
+	"emulator/server"
 )
 
 func main() {
@@ -17,6 +17,12 @@ func main() {
 	}
 
 	registers := emulator.Exec(bytecodes)
+	_ = registers
 
-	fmt.Println(registers.Registers)
+	serve, err := server.NewServer("1337")
+	if err != nil {
+		panic(err)
+	}
+
+	serve.Run()
 }
