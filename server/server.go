@@ -1,8 +1,14 @@
 package server
 
 import (
+	"bytes"
+	"emulator/emulator"
+	"emulator/game"
+	"encoding/json"
 	"fmt"
+	"math/rand"
 	"net"
+	"reflect"
 )
 
 type Server struct {
@@ -18,11 +24,14 @@ type Pool struct {
 
 type Message_t struct {
 	Message string
+	Client  *Client
 }
 
 type Client struct {
-	Pool *Pool
-	Conn *net.Conn
+	Pool        *Pool
+	Conn        *net.Conn
+	Win         int
+	BytecodeTMP []byte
 }
 
 func NewServer(port string) (*Server, error) {
@@ -45,17 +54,41 @@ func (p *Pool) RunPool() {
 		select {
 		case client := <-p.Register:
 			p.Clients[client] = true
+
 			fmt.Println("New client")
 			if _, err := (*client.Conn).Write([]byte("[ - Memulator VM bytecode tester - ]\n")); err != nil {
 				return
 			}
+
+			generated_bytecode := game.GenerateBytecode()
+			generated_bytecode2 := generated_bytecode[rand.Intn(len(generated_bytecode))]
+
+			if _, err := (*client.Conn).Write([]byte(fmt.Sprintf("%v\n", generated_bytecode2))); err != nil {
+				return
+			}
+
+			client.BytecodeTMP = generated_bytecode2
+
 		case client := <-p.Unregister:
 			delete(p.Clients, client)
 
 			fmt.Println("Client close")
 		case message := <-p.Message:
-			fmt.Println("New message: ")
-			fmt.Println(message)
+			fmt.Println(string(message.Client.BytecodeTMP))
+			var bytecode_input map[string]int
+
+			if err := json.Unmarshal([]byte(bytes.Trim([]byte(message.Message), "\x00")), &bytecode_input); err != nil {
+				if _, err := (*message.Client.Conn).Write([]byte(err.Error())); err != nil {
+					return
+				}
+				return
+			}
+
+			// TODO: Cast map to register map to compare two hash map register
+			m := map[emulator.Register]int{
+				emulator.QOX: 10,
+			}
+			fmt.Println(reflect.DeepEqual(bytecode_input, m))
 		}
 	}
 }
@@ -85,6 +118,7 @@ func (client *Client) Read() {
 
 		var message Message_t = Message_t{
 			Message: string(data),
+			Client:  client,
 		}
 
 		client.Pool.Message <- message
