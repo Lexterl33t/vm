@@ -3,7 +3,6 @@ package server
 import (
 	"bytes"
 	"emulator/emulator"
-	"emulator/env"
 	"emulator/game"
 	"encoding/json"
 	"fmt"
@@ -55,20 +54,22 @@ func NewServer(port string) (*Server, error) {
 }
 
 func (client *Client) Win() {
-	if client.Score == client.NumberBytecode {
-		(*client.Conn).Write([]byte(fmt.Sprintf("GG ! You can validate this flag: %v\n", env.FLAG)))
+	if client.Score > client.NumberBytecode {
+		if _, err := (*client.Conn).Write([]byte(fmt.Sprintf("GG ! You can validate this flag: %v\n", FLAG))); err != nil {
+			return
+		}
 	}
 
-	client.Pool.Unregister <- client
 }
 
-func (client *Client) Loose() {
-	(*client.Conn).Write([]byte("Loooser\n"))
-
-	client.Pool.Unregister <- client
+func (c *Client) Loose(p *Pool) {
+	if _, err := (*c.Conn).Write([]byte("Tu es un kikoo")); err != nil {
+		return
+	}
 }
 
 func (client *Client) NewByteCode() {
+	fmt.Println(client.Score)
 	if client.Score <= client.NumberBytecode {
 		generated_bytecode := game.GenerateBytecode()
 		generated_bytecode2 := generated_bytecode[rand.Intn(len(generated_bytecode))]
@@ -80,7 +81,7 @@ func (client *Client) NewByteCode() {
 		client.BytecodeTMP = generated_bytecode2
 
 	} else {
-		client.Pool.Win <- client
+		client.Win()
 	}
 }
 
@@ -98,9 +99,11 @@ func (p *Pool) RunPool() {
 			client.NewByteCode()
 
 		case client := <-p.Unregister:
+			fmt.Println("Issoufre au chocolat")
+			fmt.Println("Client close")
+
 			delete(p.Clients, client)
 
-			fmt.Println("Client close")
 			(*client.Conn).Close()
 		case client := <-p.Win:
 			client.Win()
@@ -121,7 +124,7 @@ func (p *Pool) RunPool() {
 					message.Client.Score += 1
 					message.Client.NewByteCode()
 				} else {
-					message.Client.Loose()
+					message.Client.Loose(p)
 				}
 			}
 
@@ -145,7 +148,6 @@ func (client *Client) Read() {
 
 	defer func() {
 		client.Pool.Unregister <- client
-		(*client.Conn).Close()
 	}()
 
 	for {
@@ -182,7 +184,7 @@ func (serve *Server) Run() {
 		client := Client{
 			Pool:           pool,
 			Conn:           &conn,
-			NumberBytecode: rand.Intn(50),
+			NumberBytecode: 1,
 			Score:          0,
 		}
 
