@@ -1,9 +1,5 @@
 package game
 
-import (
-	"math/rand"
-)
-
 func GenerateBytecode() [][]byte {
 	var bytecodes [][]byte = [][]byte{{
 		0x4A, 0x20, 0x0A, 0x00, 0x00, 0x00, 0x00, 0x00, // SET QOX, 10
@@ -15,10 +11,11 @@ func GenerateBytecode() [][]byte {
 		0x44, 0x43, 0x43, 0x43, 0x00, 0x00, 0x00, 0x00, // PUSH 0x434343
 	}}
 
-	bytecodes[0][2] = byte(rand.Intn(50))
-	bytecodes[0][10] = byte(rand.Intn(50))
-	bytecodes[0][18] = byte(rand.Intn(50))
-	bytecodes[0][19] = bytecodes[0][18]
+	/*
+		bytecodes[0][2] = byte(rand.Intn(50))
+		bytecodes[0][10] = byte(rand.Intn(50))
+		bytecodes[0][18] = byte(rand.Intn(50))
+		bytecodes[0][19] = bytecodes[0][18]*/
 
 	return bytecodes
 }

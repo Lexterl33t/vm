@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"emulator/emulator"
+	"emulator/env"
 	"emulator/game"
 	"encoding/json"
 	"fmt"
@@ -16,10 +17,13 @@ type Server struct {
 }
 
 type Pool struct {
-	Clients    map[*Client]bool
-	Register   chan *Client
-	Unregister chan *Client
-	Message    chan Message_t
+	Clients     map[*Client]bool
+	Register    chan *Client
+	Unregister  chan *Client
+	NewByteCode chan *Client
+	Win         chan *Client
+	Loose       chan *Client
+	Message     chan Message_t
 }
 
 type Message_t struct {
@@ -28,10 +32,11 @@ type Message_t struct {
 }
 
 type Client struct {
-	Pool        *Pool
-	Conn        *net.Conn
-	Win         int
-	BytecodeTMP []byte
+	Pool           *Pool
+	Conn           *net.Conn
+	NumberBytecode int
+	Score          int
+	BytecodeTMP    []byte
 }
 
 func NewServer(port string) (*Server, error) {
@@ -49,6 +54,36 @@ func NewServer(port string) (*Server, error) {
 
 }
 
+func (client *Client) Win() {
+	if client.Score == client.NumberBytecode {
+		(*client.Conn).Write([]byte(fmt.Sprintf("GG ! You can validate this flag: %v\n", env.FLAG)))
+	}
+
+	client.Pool.Unregister <- client
+}
+
+func (client *Client) Loose() {
+	(*client.Conn).Write([]byte("Loooser\n"))
+
+	client.Pool.Unregister <- client
+}
+
+func (client *Client) NewByteCode() {
+	if client.Score <= client.NumberBytecode {
+		generated_bytecode := game.GenerateBytecode()
+		generated_bytecode2 := generated_bytecode[rand.Intn(len(generated_bytecode))]
+
+		if _, err := (*client.Conn).Write([]byte(fmt.Sprintf("%v\n", generated_bytecode2))); err != nil {
+			return
+		}
+
+		client.BytecodeTMP = generated_bytecode2
+
+	} else {
+		client.Pool.Win <- client
+	}
+}
+
 func (p *Pool) RunPool() {
 	for {
 		select {
@@ -60,45 +95,49 @@ func (p *Pool) RunPool() {
 				return
 			}
 
-			generated_bytecode := game.GenerateBytecode()
-			generated_bytecode2 := generated_bytecode[rand.Intn(len(generated_bytecode))]
-
-			if _, err := (*client.Conn).Write([]byte(fmt.Sprintf("%v\n", generated_bytecode2))); err != nil {
-				return
-			}
-
-			client.BytecodeTMP = generated_bytecode2
+			client.NewByteCode()
 
 		case client := <-p.Unregister:
 			delete(p.Clients, client)
 
 			fmt.Println("Client close")
+			(*client.Conn).Close()
+		case client := <-p.Win:
+			client.Win()
 		case message := <-p.Message:
-			fmt.Println(string(message.Client.BytecodeTMP))
-			var bytecode_input map[string]int
+			var bytecode_input map[emulator.Register]int
 
 			if err := json.Unmarshal([]byte(bytes.Trim([]byte(message.Message), "\x00")), &bytecode_input); err != nil {
-				if _, err := (*message.Client.Conn).Write([]byte(err.Error())); err != nil {
-					return
+				if _, err := (*message.Client.Conn).Write([]byte(fmt.Sprintf("%v\n", err.Error()))); err != nil {
+					break
 				}
-				return
+				break
 			}
 
-			// TODO: Cast map to register map to compare two hash map register
-			m := map[emulator.Register]int{
-				emulator.QOX: 10,
+			if message.Client.BytecodeTMP != nil {
+				runtime := emulator.Exec(message.Client.BytecodeTMP)
+				fmt.Println(bytecode_input, runtime.Registers)
+				if ok := reflect.DeepEqual(bytecode_input, runtime.Registers); ok {
+					message.Client.Score += 1
+					message.Client.NewByteCode()
+				} else {
+					message.Client.Loose()
+				}
 			}
-			fmt.Println(reflect.DeepEqual(bytecode_input, m))
+
 		}
 	}
 }
 
 func InitPool() *Pool {
 	return &Pool{
-		Clients:    make(map[*Client]bool),
-		Register:   make(chan *Client),
-		Unregister: make(chan *Client),
-		Message:    make(chan Message_t),
+		Clients:     make(map[*Client]bool),
+		Register:    make(chan *Client),
+		Unregister:  make(chan *Client),
+		Message:     make(chan Message_t),
+		NewByteCode: make(chan *Client),
+		Win:         make(chan *Client),
+		Loose:       make(chan *Client),
 	}
 }
 
@@ -141,8 +180,10 @@ func (serve *Server) Run() {
 		}
 
 		client := Client{
-			Pool: pool,
-			Conn: &conn,
+			Pool:           pool,
+			Conn:           &conn,
+			NumberBytecode: rand.Intn(50),
+			Score:          0,
 		}
 
 		pool.Register <- &client
