@@ -2,8 +2,8 @@ package server
 
 import (
 	"bytes"
-	"emulator/emulator"
-	"emulator/game"
+	"vm/emulator"
+	"vm/game"
 	"encoding/json"
 	"fmt"
 	"math/rand"
@@ -184,7 +184,7 @@ func (serve *Server) Run() {
 		client := Client{
 			Pool:           pool,
 			Conn:           &conn,
-			NumberBytecode: 1,
+			NumberBytecode: rand.Intn(30),
 			Score:          0,
 		}
 

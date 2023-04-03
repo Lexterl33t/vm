@@ -1,0 +1,8 @@
+version: "3"
+services:
+  tcp:
+    build: .
+    ports: 
+      - "8000:1337"
+    command: ["./vm"]
+

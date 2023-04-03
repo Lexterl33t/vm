@@ -1,23 +1,29 @@
 package emulator
 
-import (
-	"fmt"
-)
-
+import "fmt"
 type Runtime struct {
 	Registers map[Register]int
 	QIP       int
-	Stack     *Stack
+	QSP 	  *int
+	Stack     Stack
 	Opcodes   []byte
 }
 
 func NewRuntime(opcodes []byte) *Runtime {
-	return &Runtime{
+
+	stack := NewStack()
+
+	lastElement := &stack.Stack[len(stack.Stack)-1]
+
+	runtime := &Runtime{
 		Registers: make(map[Register]int),
 		QIP:       0,
-		Stack:     NewStack(),
+		Stack:     stack,
 		Opcodes:   opcodes,
+		QSP: lastElement,	
 	}
+		
+	return runtime
 }
 
 func (runtime *Runtime) NextOpcode() {
@@ -28,7 +34,7 @@ func (runtime *Runtime) AdvanceNOpcode(n int) {
 	runtime.QIP += n
 }
 
-func Exec(opcodes []byte) Runtime {
+func Exec(opcodes []byte) *Runtime {
 	var runtime *Runtime = NewRuntime(opcodes)
 
 	for runtime.QIP < len(opcodes) {
@@ -80,11 +86,10 @@ func Exec(opcodes []byte) Runtime {
 				panic(err)
 			}
 		default:
-			fmt.Println(runtime.Opcodes[runtime.QIP])
 			panic("Unknow opcode")
 		}
 
 	}
 
-	return *runtime
+	return runtime
 }

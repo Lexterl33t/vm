@@ -1,8 +1,6 @@
 package emulator
 
-import (
-	"fmt"
-)
+import "fmt"
 
 type Bytecode byte
 
@@ -18,6 +16,7 @@ const (
 	NEQ  Bytecode = 0x48
 	RES  Bytecode = 0x49
 	SET  Bytecode = 0x4A
+	JMP  Bytecode = 0x4B
 )
 
 func (runtime *Runtime) Sum() error {
@@ -103,6 +102,8 @@ func (runtime *Runtime) Prod() error {
 
 	return nil
 }
+
+
 
 func (runtime *Runtime) Quot() error {
 
@@ -261,9 +262,8 @@ func (runtime *Runtime) Push() error {
 
 	var source_operand_value int = int(ByteArrayToInt(runtime.Opcodes[runtime.QIP : runtime.QIP+6]))
 
+	fmt.Println(source_operand_value)
 	runtime.Stack.Push(source_operand_value)
-
-	runtime.Registers[QSP] = runtime.Stack.Top()
 
 	runtime.AdvanceNOpcode(7)
 
@@ -328,11 +328,9 @@ func (runtime *Runtime) CompExtended(prefix byte) error {
 
 		var value int = int(runtime.Opcodes[runtime.QIP])
 
-		if runtime.Registers[register] == value {
-			runtime.Registers[QZF] = 0
-		} else {
-			runtime.Registers[QZF] = 1
-		}
+		runtime.Stack.Push(runtime.Registers[register])
+		runtime.Stack.Push(value)
+		runtime.Registers[QSP] = runtime.Stack.Top()
 	case 0x02:
 
 		runtime.AdvanceNOpcode(1)
@@ -385,8 +383,12 @@ func (runtime *Runtime) Eq() {
 	runtime.AdvanceNOpcode(1)
 
 	var ip_dest int = int(runtime.Opcodes[runtime.QIP])
+	
+	var val1 int = runtime.Stack.Top()
+	runtime.Stack.Pop()
+	var val2 int = runtime.Stack.Top()
 
-	if runtime.Registers[QZF] == 0 {
+	if val1 == val2 {
 		runtime.QIP = ip_dest * 8
 		return
 	}
@@ -398,8 +400,12 @@ func (runtime *Runtime) Neq() {
 	runtime.AdvanceNOpcode(1)
 
 	var ip_dest int = int(runtime.Opcodes[runtime.QIP])
+	
+	var val1 int = runtime.Stack.Top()
+	runtime.Stack.Pop()
+	var val2 int = runtime.Stack.Top()
 
-	if runtime.Registers[QZF] == 1 {
+	if val1 != val2 {
 		runtime.QIP = ip_dest * 8
 		return
 	}
@@ -421,4 +427,15 @@ func (runtime *Runtime) Res() error {
 	runtime.AdvanceNOpcode(7)
 
 	return nil
+}
+
+func (runtime *Runtime) Jmp() {
+
+	runtime.AdvanceNOpcode(1)
+
+	var dest_to_jump int = int(runtime.Opcodes[runtime.QIP])
+
+	runtime.QIP = dest_to_jump * 8
+
+	runtime.AdvanceNOpcode(7)
 }

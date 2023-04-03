@@ -4,19 +4,24 @@ type Stack struct {
 	Stack []int
 }
 
-func NewStack() *Stack {
+func NewStack() Stack {
 	st := Stack{}
 	st.Stack = append(st.Stack, 0)
 
-	return &st
+	return st
 }
 
-func (stack *Stack) Pop() {
-	stack.Stack = stack.Stack[:len(stack.Stack)-1]
+func (s *Stack) Push(value int) {
+    s.Stack = append(s.Stack, value)
 }
 
-func (stack *Stack) Push(value int) {
-	stack.Stack = append(stack.Stack, value)
+func (s *Stack) Pop() int {
+    if len(s.Stack) == 0 {
+        panic("la stack est vide")
+    }
+    value := s.Stack[len(s.Stack)-1]
+    s.Stack = s.Stack[:len(s.Stack)-1]
+    return value
 }
 
 func (stack *Stack) Top() int {
